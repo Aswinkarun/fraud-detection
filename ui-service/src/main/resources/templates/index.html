@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Upload Excel</title>
+    <script>
+        window.onload = function () {
+            const eventSource = new EventSource("/fraud-stream");
+            eventSource.onmessage = function (event) {
+                const data = JSON.parse(event.data);
+                const div = document.getElementById("results");
+                const p = document.createElement("p");
+                p.innerText = `Name: ${data.name}, Fraud: ${data.isFraud}, Rules Passed: ${data.rulesPassed}`;
+                div.appendChild(p);
+            };
+        };
+    </script>
+</head>
+<body>
+    <h1>Upload Transaction Excel File</h1>
+
+    <form method="POST" enctype="multipart/form-data" action="/upload">
+        <input type="file" name="file"/>
+        <button type="submit">Upload</button>
+    </form>
+
+    <p th:text="${message}"></p>
+
+    <h2>Fraud Result Stream:</h2>
+    <div id="results"></div>
+</body>
+</html>
