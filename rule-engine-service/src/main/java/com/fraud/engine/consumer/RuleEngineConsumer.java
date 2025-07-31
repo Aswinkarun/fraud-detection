@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.List;
+import java.util.ArrayList;
 
 @Service
 public class RuleEngineConsumer {
@@ -19,35 +21,47 @@ public class RuleEngineConsumer {
     }
 
     @KafkaListener(topics = "transaction-topic", groupId = "fraud-group")
-    public void consume(String message) throws JsonProcessingException {
+    public void consume(String message) throws JsonProcessingException 
+    {
+    	System.out.println("Received transaction: " + message);
+    	
         Map<String, Object> transaction = mapper.readValue(message, Map.class);
 
-        int satisfiedRules = 0;
+        int rulesViolated = 0;
         boolean isFraud = false;
+        List<String> violatedRules = new ArrayList<>();
 
         double amount = Double.parseDouble(transaction.get("amount").toString());
         double cardUsage = Double.parseDouble(transaction.get("cardUsage").toString());
         double age = Double.parseDouble(transaction.get("age").toString());
 
-        if (amount > 50000) satisfiedRules++;
-        if (cardUsage > 10) satisfiedRules++;
-        if (age > 60) satisfiedRules++;
+        if (amount > 50000) {
+            rulesViolated++;
+            violatedRules.add("Amount > 50000");
+        }
+        if (cardUsage > 10) {
+            rulesViolated++;
+            violatedRules.add("Card Usage > 10");
+        }
+        if (age > 60) {
+            rulesViolated++;
+            violatedRules.add("Age > 60");
+        }
 
-        if (satisfiedRules >= 2) isFraud = true;
+        if (rulesViolated >= 2) isFraud = true;
 
-        // Log to console (optional)
-        System.out.println("User: " + transaction.get("name"));
+        System.out.println("Transaction: " + transaction.get("transactionID"));
         System.out.println("Fraud Detected: " + isFraud);
-        System.out.println("Rules Passed: " + satisfiedRules);
+        System.out.println("Rules Violated: " + rulesViolated);
+        System.out.println("Violated Rules: " + violatedRules);
         System.out.println("--------------");
 
-        // Create output map
         Map<String, Object> result = new HashMap<>();
-        result.put("name", transaction.get("name"));
+        result.put("transactionID", transaction.get("transactionID"));
         result.put("isFraud", isFraud);
-        result.put("rulesPassed", satisfiedRules);
+        result.put("rulesViolated", rulesViolated);
+        result.put("violatedRules", violatedRules);  // NEW FIELD
 
-        // Send result to Kafka topic "fraud-result"
         kafkaTemplate.send("fraud-result", mapper.writeValueAsString(result));
     }
 }

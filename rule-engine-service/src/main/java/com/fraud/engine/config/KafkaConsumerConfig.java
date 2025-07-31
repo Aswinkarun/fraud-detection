@@ -16,9 +16,8 @@ public class KafkaConsumerConfig {
     // Consumer auto-configured by Spring Boot via application.properties
 
     @Bean
-    public ProducerFactory<String, String> producerFactory(
-        @Value("${spring.kafka.bootstrap-servers}") String bootstrap
-    ) {
+    public ProducerFactory<String, String> producerFactory(@Value("${spring.kafka.bootstrap-servers}") String bootstrap) 
+    {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
         cfg.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);

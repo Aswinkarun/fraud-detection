@@ -1,31 +1,170 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Upload Excel</title>
+    <title>Fraud Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        form {
+            margin-bottom: 20px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        button {
+            margin-left: 10px;
+            padding: 8px 16px;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .fraud-true {
+            color: red;
+            font-weight: bold;
+        }
+
+        .fraud-false {
+            color: green;
+            font-weight: bold;
+        }
+        .rule-badge {
+		    display: inline-block;
+		    background-color: #ffc107;
+		    color: #000;
+		    padding: 4px 8px;
+		    margin: 2px;
+		    border-radius: 12px;
+		    font-size: 12px;
+		    cursor: default;
+		}
+		        
+    </style>
+<!-- 
     <script>
         window.onload = function () {
             const eventSource = new EventSource("/fraud-stream");
+            const tableBody = document.getElementById("results-body");
+
             eventSource.onmessage = function (event) {
                 const data = JSON.parse(event.data);
-                const div = document.getElementById("results");
-                const p = document.createElement("p");
-                p.innerText = `Name: ${data.name}, Fraud: ${data.isFraud}, Rules Passed: ${data.rulesPassed}`;
-                div.appendChild(p);
+                const row = document.createElement("tr");
+
+                row.innerHTML = `
+                    <td>${data.transactionID}</td>
+                    <td class="${data.isFraud ? 'fraud-true' : 'fraud-false'}">${data.isFraud}</td>
+                    <td>${data.rulesViolated}</td>
+                    <td>
+                        ${data.violatedRules.map(rule => `<span class="rule-badge" title="${rule}">${rule}</span>`).join(" ")}
+                    </td>
+                `;
+
+                tableBody.prepend(row);
             };
         };
+        function clearTable() {
+            document.getElementById("results-body").innerHTML = "";
+        }
+
     </script>
+-->   
+<script>
+    let eventSource;
+
+    function initSSE() {
+        if (eventSource) return; // Prevent duplicate SSE connections
+
+        eventSource = new EventSource("/fraud-stream");
+        const tableBody = document.getElementById("results-body");
+
+        eventSource.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+                <td>${data.transactionID}</td>
+                <td class="${data.isFraud ? 'fraud-true' : 'fraud-false'}">${data.isFraud}</td>
+                <td>${data.rulesViolated}</td>
+                <td>
+                    ${(data.violatedRules || []).map(rule => `<span class="rule-badge" title="${rule}">${rule}</span>`).join(" ")}
+                </td>
+            `;
+
+            tableBody.prepend(row);
+        };
+
+        eventSource.onerror = function (err) {
+            console.error("SSE error:", err);
+            eventSource.close();
+            eventSource = null;
+        };
+    }
+
+    function clearTable() {
+        document.getElementById("results-body").innerHTML = "";
+    }
+
+    window.onload = function () {
+        initSSE(); // initialize SSE once on load
+    };
+</script>
+ 
 </head>
 <body>
+
     <h1>Upload Transaction Excel File</h1>
 
     <form method="POST" enctype="multipart/form-data" action="/upload">
-        <input type="file" name="file"/>
+        <input type="file" name="file" required />
         <button type="submit">Upload</button>
     </form>
 
     <p th:text="${message}"></p>
 
-    <h2>Fraud Result Stream:</h2>
-    <div id="results"></div>
+    <h2>Fraud Detection Stream:</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Transaction ID</th>
+                <th>Fraud</th>
+                <th>Rules Violated</th>
+                <th>Warnings</th>
+            </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+    </table>
+
 </body>
 </html>
