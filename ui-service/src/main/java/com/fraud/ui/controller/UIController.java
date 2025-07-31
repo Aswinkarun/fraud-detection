@@ -20,7 +20,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Controller
 public class UIController 
 {
-
 	@Value("${api.gateway.url}")
 	private String uploadUrl;
 
@@ -28,6 +27,12 @@ public class UIController
 	public String index() 
 	{
 		return "index";
+	}
+	
+	@GetMapping("/rules")
+	public String rules()
+	{
+		return "rules";
 	}
 
 	@PostMapping("/upload")

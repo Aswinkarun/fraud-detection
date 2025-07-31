@@ -12,7 +12,13 @@
         h1 {
             color: #333;
         }
-
+		
+		.top-bar {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+		
         form {
             margin-bottom: 20px;
             background: #fff;
@@ -93,9 +99,11 @@
     </style>
 </head>
 <body>
-
+<div class="top-bar">
     <h1>Upload Transaction Excel File</h1>
 
+    <button onclick="location.href='/rules'">Manage Rules</button>
+</div>
     <form method="POST" enctype="multipart/form-data" action="/upload" onsubmit="clearTable()">
         <input type="file" name="file" id="file" required />
         <button type="submit">Upload</button>
@@ -160,9 +168,11 @@
             	<td colspan="6">
             		<strong>Name:</strong> ${data.name} |
             		<strong>Account Number:</strong> ${data.accountNumber} |
+            		<strong>Amount:</strong> ${data.amount} |
             		<strong>Mode:</strong> ${data.mode} |
             		<strong>Card Usage:</strong> ${data.cardUsage} |
             		<strong>Age:</strong> ${data.age}
+
             	</td>
             `;
 			

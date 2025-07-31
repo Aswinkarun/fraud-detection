@@ -2,6 +2,10 @@ package com.fraud.engine.consumer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fraud.engine.model.Rule;
+import com.fraud.engine.repository.RuleRepository;
+import com.fraud.engine.service.RuleEngineService;
+
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -15,9 +19,14 @@ public class RuleEngineConsumer {
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final RuleRepository ruleRepository;
+    private final RuleEngineService ruleEngineService;
 
-    public RuleEngineConsumer(KafkaTemplate<String, String> kafkaTemplate) {
+    public RuleEngineConsumer(KafkaTemplate<String, String> kafkaTemplate, RuleRepository ruleRepository, RuleEngineService ruleEngineService) 
+    {
         this.kafkaTemplate = kafkaTemplate;
+        this.ruleRepository = ruleRepository;
+        this.ruleEngineService = ruleEngineService;
     }
 
     @KafkaListener(topics = "transaction-topic", groupId = "fraud-group")
@@ -26,49 +35,20 @@ public class RuleEngineConsumer {
     	System.out.println("Received transaction: " + message);
     	
         Map<String, Object> transaction = mapper.readValue(message, Map.class);
-
-        int rulesViolated = 0;
-        boolean isFraud = false;
-        List<String> violatedRules = new ArrayList<>();
-
-        double amount = Double.parseDouble(transaction.get("amount").toString());
-        double cardUsage = Double.parseDouble(transaction.get("cardUsage").toString());
-        double age = Double.parseDouble(transaction.get("age").toString());
-
-        if (amount > 50000) {
-            rulesViolated++;
-            violatedRules.add("Amount > 50000");
-        }
-        if (cardUsage > 10) {
-            rulesViolated++;
-            violatedRules.add("Card Usage > 10");
-        }
-        if (age > 60) {
-            rulesViolated++;
-            violatedRules.add("Age > 60");
-        }
-
-        if (rulesViolated >= 2) isFraud = true;
-
-        System.out.println("Transaction: " + transaction.get("transactionID"));
-        System.out.println("Fraud Detected: " + isFraud);
-        System.out.println("Rules Violated: " + rulesViolated);
-        System.out.println("Violated Rules: " + violatedRules);
-        System.out.println("--------------");
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("transactionID", transaction.get("transactionID"));
-        result.put("isFraud", isFraud);
-        result.put("rulesViolated", rulesViolated);
-        result.put("violatedRules", violatedRules);  // NEW FIELD
         
-        result.put("name", transaction.get("name"));
-        result.put("accountNumber", transaction.get("accountNumber"));
-        result.put("amount", amount);
-        result.put("mode", transaction.get("mode"));
-        result.put("cardUsage", cardUsage);
-        result.put("age", age);
+        List<Rule> dbRules = ruleRepository.findByActiveTrue();
 
+        List<Map<String, String>> ruleList = new ArrayList<>();
+        for(Rule r : dbRules)
+        {
+        	Map<String, String> ruleMap = new HashMap<>();
+        	ruleMap.put("columnName", r.getColumnName());
+        	ruleMap.put("operator", r.getOperator());
+        	ruleMap.put("value", r.getValue());
+        	ruleList.add(ruleMap);
+        }
+        Map<String, Object> result = ruleEngineService.evaluateRules(transaction, ruleList);
+        
         kafkaTemplate.send("fraud-result", mapper.writeValueAsString(result));
     }
 }

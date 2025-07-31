@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Manage Rules</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f4f6f8;
+            margin: 40px;
+        }
+
+        h2, h3 {
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        input[type="checkbox"] {
+            transform: scale(1.2);
+            margin-top: 6px;
+        }
+
+        input[type="hidden"] {
+            display: none;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background-color: #005663;
+        }
+
+        .back-button {
+            background-color: #280745;
+            float: right;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+            overflow: hidden;
+            border-radius: 8px;
+            background-color: #fff;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .status-active {
+            color: green;
+            font-weight: bold;
+        }
+
+        .status-inactive {
+            color: gray;
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        async function fetchRules() {
+            const response = await fetch('http://localhost:8082/rules');
+            const rules = await response.json();
+
+            let table = document.getElementById("rulesTable");
+            table.innerHTML = "<tr><th>ID</th><th>Column</th><th>Operator</th><th>Value</th><th>Status</th><th>Actions</th></tr>";
+
+            rules.forEach(rule => {
+                table.innerHTML += `
+                    <tr>
+                        <td>${rule.id}</td>
+                        <td>${rule.columnName}</td>
+                        <td>${rule.operator}</td>
+                        <td>${rule.value}</td>
+                        <td class="${rule.active ? 'status-active' : 'status-inactive'}">
+                            ${rule.active ? 'Active' : 'Inactive'}
+                        </td>
+                        <td>
+                            <button onclick="populateForm('${rule.id}', '${rule.columnName}', '${rule.operator}', '${rule.value}', ${rule.active})">Edit</button>
+                            <button onclick="deleteRule(${rule.id})">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function populateForm(id, columnName, operator, value, active) {
+            document.getElementById("ruleId").value = id;
+            document.getElementById("columnName").value = columnName;
+            document.getElementById("operator").value = operator;
+            document.getElementById("value").value = value;
+            document.getElementById("active").checked = active;
+        }
+
+        async function addRule() {
+            const columnName = document.getElementById("columnName").value;
+            const operator = document.getElementById("operator").value;
+            const value = document.getElementById("value").value;
+            const active = document.getElementById("active").checked;
+
+            const response = await fetch('http://localhost:8082/rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ columnName, operator, value, active })
+            });
+
+            if (response.ok) {
+                alert("Rule added!");
+                clearForm();
+                fetchRules();
+            } else {
+                alert("Error adding rule.");
+            }
+        }
+
+        async function updateRule() {
+            const id = document.getElementById("ruleId").value;
+            if (!id) return alert("No rule selected for update.");
+
+            const columnName = document.getElementById("columnName").value;
+            const operator = document.getElementById("operator").value;
+            const value = document.getElementById("value").value;
+            const active = document.getElementById("active").checked;
+
+            const response = await fetch(`http://localhost:8082/rules/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ columnName, operator, value, active })
+            });
+
+            if (response.ok) {
+                alert("Rule updated!");
+                clearForm();
+                fetchRules();
+            } else {
+                alert("Failed to update rule.");
+            }
+        }
+
+        async function deleteRule(id) {
+            if (!confirm("Are you sure you want to delete this rule?")) return;
+
+            const response = await fetch(`http://localhost:8082/rules/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                alert("Rule deleted!");
+                clearForm();
+                fetchRules();
+            } else {
+                alert("Failed to delete rule.");
+            }
+        }
+
+        function clearForm() {
+            document.getElementById("ruleId").value = "";
+            document.getElementById("columnName").value = "";
+            document.getElementById("operator").value = "";
+            document.getElementById("value").value = "";
+            document.getElementById("active").checked = true;
+        }
+
+        window.onload = fetchRules;
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h2>Admin Rule Management</h2>
+
+        <button class="back-button" onclick="location.href='/'">Back to Dashboard</button>
+
+        <input type="hidden" id="ruleId">
+
+        <div class="form-group">
+            <label>Column Name:</label>
+            <input type="text" id="columnName" placeholder="e.g. amount">
+        </div>
+
+        <div class="form-group">
+            <label>Operator:</label>
+            <input type="text" id="operator" placeholder="e.g. >, <, ==">
+        </div>
+
+        <div class="form-group">
+            <label>Value:</label>
+            <input type="text" id="value" placeholder="e.g. 10000">
+        </div>
+
+        <div class="form-group">
+            <label>Active:</label>
+            <input type="checkbox" id="active" checked>
+        </div>
+
+        <button onclick="addRule()">Add Rule</button>
+        <button onclick="updateRule()">Update Rule</button>
+
+        <h3>Existing Rules</h3>
+        <table id="rulesTable"></table>
+    </div>
+</body>
+</html>
