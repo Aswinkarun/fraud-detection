@@ -9,6 +9,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.util.*;
 
 @RestController
@@ -65,7 +66,7 @@ public class ExcelController {
                 try {
                     data.put("transactionID", getCellValue(row.getCell(headerMap.get("transactionid"))));
                     data.put("name", getCellValue(row.getCell(headerMap.get("name"))));
-                    data.put("account", getCellValue(row.getCell(headerMap.get("accountnumber"))));
+                    data.put("accountNumber", getCellValue(row.getCell(headerMap.get("accountnumber"))));
                     data.put("amount", Double.parseDouble(getCellValue(row.getCell(headerMap.get("amount")))));
                     data.put("mode", getCellValue(row.getCell(headerMap.get("mode"))));
                     data.put("cardUsage", Double.parseDouble(getCellValue(row.getCell(headerMap.get("cardusage")))));
@@ -98,7 +99,7 @@ public class ExcelController {
                 if (DateUtil.isCellDateFormatted(cell)) {
                     return cell.getDateCellValue().toString();
                 }
-                return String.valueOf(cell.getNumericCellValue());
+                return BigDecimal.valueOf(cell.getNumericCellValue()).toPlainString(); // FIXED LINE
             case BOOLEAN:
                 return String.valueOf(cell.getBooleanCellValue());
             case FORMULA:

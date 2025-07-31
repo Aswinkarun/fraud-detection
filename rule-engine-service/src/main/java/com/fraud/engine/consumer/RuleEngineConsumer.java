@@ -61,6 +61,13 @@ public class RuleEngineConsumer {
         result.put("isFraud", isFraud);
         result.put("rulesViolated", rulesViolated);
         result.put("violatedRules", violatedRules);  // NEW FIELD
+        
+        result.put("name", transaction.get("name"));
+        result.put("accountNumber", transaction.get("accountNumber"));
+        result.put("amount", amount);
+        result.put("mode", transaction.get("mode"));
+        result.put("cardUsage", cardUsage);
+        result.put("age", age);
 
         kafkaTemplate.send("fraud-result", mapper.writeValueAsString(result));
     }

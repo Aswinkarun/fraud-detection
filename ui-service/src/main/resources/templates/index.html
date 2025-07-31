@@ -70,101 +70,134 @@
 		    font-size: 12px;
 		    cursor: default;
 		}
+		
+		.details {
+			display : none;
+			background-color: #f1f1f1;
+		}
+		
+		.fraud-row {
+			background-color: #ffe6e6;
+		}
+		
+		.safe-row {
+			background-color: #e6ffe6;
+		}
+		
+		.toggle-btn {
+			cursor: pointer;
+			color: #007bff;
+			text-decoration: underline;
+		}
 		        
     </style>
-<!-- 
-    <script>
-        window.onload = function () {
-            const eventSource = new EventSource("/fraud-stream");
-            const tableBody = document.getElementById("results-body");
-
-            eventSource.onmessage = function (event) {
-                const data = JSON.parse(event.data);
-                const row = document.createElement("tr");
-
-                row.innerHTML = `
-                    <td>${data.transactionID}</td>
-                    <td class="${data.isFraud ? 'fraud-true' : 'fraud-false'}">${data.isFraud}</td>
-                    <td>${data.rulesViolated}</td>
-                    <td>
-                        ${data.violatedRules.map(rule => `<span class="rule-badge" title="${rule}">${rule}</span>`).join(" ")}
-                    </td>
-                `;
-
-                tableBody.prepend(row);
-            };
-        };
-        function clearTable() {
-            document.getElementById("results-body").innerHTML = "";
-        }
-
-    </script>
--->   
-<script>
-    let eventSource;
-
-    function initSSE() {
-        if (eventSource) return; // Prevent duplicate SSE connections
-
-        eventSource = new EventSource("/fraud-stream");
-        const tableBody = document.getElementById("results-body");
-
-        eventSource.onmessage = function (event) {
-            const data = JSON.parse(event.data);
-            const row = document.createElement("tr");
-
-            row.innerHTML = `
-                <td>${data.transactionID}</td>
-                <td class="${data.isFraud ? 'fraud-true' : 'fraud-false'}">${data.isFraud}</td>
-                <td>${data.rulesViolated}</td>
-                <td>
-                    ${(data.violatedRules || []).map(rule => `<span class="rule-badge" title="${rule}">${rule}</span>`).join(" ")}
-                </td>
-            `;
-
-            tableBody.prepend(row);
-        };
-
-        eventSource.onerror = function (err) {
-            console.error("SSE error:", err);
-            eventSource.close();
-            eventSource = null;
-        };
-    }
-
-    function clearTable() {
-        document.getElementById("results-body").innerHTML = "";
-    }
-
-    window.onload = function () {
-        initSSE(); // initialize SSE once on load
-    };
-</script>
- 
 </head>
 <body>
 
     <h1>Upload Transaction Excel File</h1>
 
-    <form method="POST" enctype="multipart/form-data" action="/upload">
-        <input type="file" name="file" required />
+    <form method="POST" enctype="multipart/form-data" action="/upload" onsubmit="clearTable()">
+        <input type="file" name="file" id="file" required />
         <button type="submit">Upload</button>
     </form>
 
-    <p th:text="${message}"></p>
+    <p id="message" th:text="${message}"></p>
 
     <h2>Fraud Detection Stream:</h2>
     <table>
         <thead>
             <tr>
+            	<th>#</th>
                 <th>Transaction ID</th>
                 <th>Fraud</th>
                 <th>Rules Violated</th>
                 <th>Warnings</th>
+                <th>Details</th>
             </tr>
         </thead>
         <tbody id="results-body"></tbody>
     </table>
+	
+	<div id="details"></div>
+	
+	<script>
+    let eventSource = null;
+    let serialNumber = 1;
+	let receivedCount=0;
+	
+    function startSSE() 
+    {
+        //if (eventSource) return; // Prevent duplicate SSE connections
+		
+        //const details = document.getElementById("details");
+        
+        eventSource = new EventSource("/fraud-stream");
+        const tableBody = document.getElementById("results-body");
 
+        eventSource.onmessage = function (event) 
+        {
+            const data = JSON.parse(event.data);
+            const row = document.createElement("tr");
+            row.classList.add(data.isFraud ? 'fraud-row' : 'safe-row');
+            
+            const detailsId = `details-${serialNumber}`;
+
+            row.innerHTML = `
+           		<td>${serialNumber++}</td>
+                <td>${data.transactionID}</td>
+                <td class="${data.isFraud ? 'fraud-true' : 'fraud-false'}">${data.isFraud}</td>
+                <td>${data.rulesViolated}</td>
+                <td>
+                    ${data.violatedRules.map(rule => `<span class="rule-badge" title="${rule}">${rule}</span>`).join(" ")}
+                </td>
+                <td><span class="toggle-btn" onclick="toggleDetails('${detailsId}')">Show</span></td>
+            `;
+            
+            const detailsRow = document.createElement("tr");
+            detailsRow.id = detailsId;
+            detailsRow.className = "details";
+            detailsRow.innerHTML = `
+            	<td colspan="6">
+            		<strong>Name:</strong> ${data.name} |
+            		<strong>Account Number:</strong> ${data.accountNumber} |
+            		<strong>Mode:</strong> ${data.mode} |
+            		<strong>Card Usage:</strong> ${data.cardUsage} |
+            		<strong>Age:</strong> ${data.age}
+            	</td>
+            `;
+			
+            tableBody.prepend(detailsRow);
+            tableBody.prepend(row);
+            
+            console.log("Received message:", data);
+            
+            receivedCount++;
+            console.log("Received message #" + receivedCount);
+        };
+    }
+    
+    function toggleDetails(id)
+    {
+    	const row = document.getElementById(id);
+    	row.style.display = row.style.display === "table-row" ? "none" : "table-row";
+    }
+
+    function clearTable() {
+        document.getElementById("results-body").innerHTML = "";
+        serialNumber = 1;
+        
+        if(eventSource)
+        {
+        	eventSource.close();
+        }
+        startSSE();
+    }
+
+    window.onload = function () 
+    {
+        startSSE(); // initialize SSE once on load
+    };
+</script>
+ 
 </body>
 </html>

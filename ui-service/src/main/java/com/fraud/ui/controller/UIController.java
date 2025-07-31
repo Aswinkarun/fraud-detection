@@ -18,65 +18,80 @@ import java.io.IOException;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @Controller
-public class UIController {
+public class UIController 
+{
 
-    @Value("${api.gateway.url}")
-    private String uploadUrl;
+	@Value("${api.gateway.url}")
+	private String uploadUrl;
 
-    private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+	@GetMapping("/")
+	public String index() 
+	{
+		return "index";
+	}
 
-    @GetMapping("/")
-    public String index() {
-        return "index";
-    }
+	@PostMapping("/upload")
+	public String handleFileUpload(@RequestParam("file") MultipartFile file, Model model) 
+	{
+		try {
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 
-    @PostMapping("/upload")
-    public String handleFileUpload(@RequestParam("file") MultipartFile file, Model model) {
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+			ByteArrayResource resource = new ByteArrayResource(file.getBytes()) 
+			{
+				@Override
+				public String getFilename() 
+				{
+					return file.getOriginalFilename();
+				}
+			};
 
-            ByteArrayResource resource = new ByteArrayResource(file.getBytes()) {
-                @Override
-                public String getFilename() {
-                    return file.getOriginalFilename();
-                }
-            };
+			MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+			body.add("file", resource);
 
-            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-            body.add("file", resource);
+			HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
-            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+			RestTemplate restTemplate = new RestTemplate();
+			ResponseEntity<String> response = restTemplate.postForEntity(uploadUrl, requestEntity, String.class);
 
-            RestTemplate restTemplate = new RestTemplate();
-            ResponseEntity<String> response = restTemplate.postForEntity(uploadUrl, requestEntity, String.class);
+			model.addAttribute("message", response.getBody());
+		} 
+		catch (Exception e)
+		{
+			model.addAttribute("message", "Error uploading file: " + e.getMessage());
+		}
+		return "index";
+	}
 
-            model.addAttribute("message", response.getBody());
-        } catch (Exception e) {
-            model.addAttribute("message", "Error uploading file: " + e.getMessage());
-        }
-        return "index";
-    }
+	private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
-    @ResponseBody
-    @GetMapping(path = "/fraud-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter stream() {
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
-        emitters.add(emitter);
-        emitter.onCompletion(() -> emitters.remove(emitter));
-        emitter.onTimeout(() -> emitters.remove(emitter));
-        return emitter;
-    }
+	@ResponseBody
+	@GetMapping(path = "/fraud-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+	public SseEmitter stream() 
+	{
+		SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+		emitters.add(emitter);
+		emitter.onCompletion(() -> emitters.remove(emitter));
+		emitter.onTimeout(() -> emitters.remove(emitter));
+		return emitter;
+	}
 
-    @KafkaListener(topics = "fraud-result", groupId = "ui-group")
-    public void consumeFraudResult(String message) {
-        for (SseEmitter emitter : emitters) {
-            try {
-                emitter.send(SseEmitter.event().name("message").data(message));
-            } catch (IOException e) {
-                emitter.completeWithError(e);
-                emitters.remove(emitter);
-            }
-        }
-    }
+	@KafkaListener(topics = "fraud-result", groupId = "ui-group")
+	public void consumeFraudResult(String message) 
+	{
+		System.out.println("Sending to UI: " + message);
+		for (SseEmitter emitter : emitters) 
+		{
+			try 
+			{
+				emitter.send(SseEmitter.event().name("message").data(message));
+				Thread.sleep(50);
+			}
+			catch (IOException | InterruptedException e) 
+			{
+				emitter.completeWithError(e);
+				emitters.remove(emitter);
+			}
+		}
+	}
 }
